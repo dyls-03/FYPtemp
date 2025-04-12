@@ -5,6 +5,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using NAudio.Wave;
+using System.Text.RegularExpressions;
+
 
 namespace gptTestApp
 {
@@ -12,6 +14,7 @@ namespace gptTestApp
     {
         static bool shouldExit = false;
         static ManualResetEvent triggerDetected = new(false);
+        static bool forceTrigger = false;
 
         static async Task Main(string[] args)
         {
@@ -30,12 +33,19 @@ namespace gptTestApp
             {
                 while (!shouldExit)
                 {
-                    if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)
-                        shouldExit = true;
+                    if (Console.KeyAvailable)
+                    {
+                        var key = Console.ReadKey(true).Key;
+                        if (key == ConsoleKey.Escape)
+                            shouldExit = true;
+                        else if (key == ConsoleKey.R)
+                            forceTrigger = true;
+                    }
                 }
             });
-
+/*
             string audioPath = "speech.wav";
+
 
             while (!shouldExit)
             {
@@ -55,14 +65,16 @@ namespace gptTestApp
                 Console.WriteLine($"\n Transcript: \"{transcript}\"");
 
                 // Check for trigger phrase
-                if (transcript.ToLower().Contains("bb"))
+                bool triggered = TriggerDetected(transcript) || forceTrigger;
+
+                if (triggered)
                 {
-                    // Clean the input (remove trigger phrase)
-                    string cleanedInput = transcript
-                        .Replace("hey bb", "", StringComparison.OrdinalIgnoreCase)
-                        .Replace("hello bb", "", StringComparison.OrdinalIgnoreCase)
-                        .Replace("bb", "", StringComparison.OrdinalIgnoreCase)
-                        .Trim();
+                    // Reset override flag
+                    forceTrigger = false;
+
+                    string cleanedInput = forceTrigger
+                        ? transcript.Trim()
+                        : Regex.Replace(transcript, @"\b(hey\s+bb|hello\s+bb|bb)\b", "", RegexOptions.IgnoreCase).Trim();
 
                     if (string.IsNullOrWhiteSpace(cleanedInput))
                     {
@@ -80,6 +92,73 @@ namespace gptTestApp
                 }
             }
 
+            */
+            while (!shouldExit)
+            {
+                string audioPath = "speech.wav";
+
+                if (forceTrigger)
+                {
+                    // --- OVERRIDE PATH ---
+                    Console.WriteLine("[OVERRIDE] Button override activated.");
+                    Console.WriteLine("[OVERRIDE] Please ask your question...");
+
+                    forceTrigger = false;
+
+                    RecordAudio(audioPath);
+
+                    string transcript = await TranscribeAudioAsync(audioPath, apiKey);
+                    if (string.IsNullOrWhiteSpace(transcript))
+                    {
+                        Console.WriteLine("[ERROR] No voice input detected.");
+                        continue;
+                    }
+
+                    Console.WriteLine($"\n[TRANSCRIPT] \"{transcript}\"");
+
+                    string reply = await GetChatGPTResponseAsync(apiKey, transcript.Trim());
+                    Console.WriteLine($"\n[BB]: {reply}\n");
+                }
+                else
+                {
+                    // --- NORMAL FLOW (trigger required) ---
+                    Console.WriteLine("[WAIT] Say something (waiting for trigger phrase: 'Hey BB')...");
+
+                    RecordAudio(audioPath);
+
+                    string transcript = await TranscribeAudioAsync(audioPath, apiKey);
+                    if (string.IsNullOrWhiteSpace(transcript))
+                    {
+                        Console.WriteLine("[ERROR] No voice input detected.");
+                        continue;
+                    }
+
+                    Console.WriteLine($"\n[TRANSCRIPT] \"{transcript}\"");
+
+                    if (TriggerDetected(transcript))
+                    {
+                        string cleanedInput = Regex.Replace(transcript, @"\b(hey\s+bb|hello\s+bb|bb)\b", "", RegexOptions.IgnoreCase).Trim();
+
+                        if (string.IsNullOrWhiteSpace(cleanedInput))
+                        {
+                            Console.WriteLine("[NOTICE] Trigger phrase detected, but no question was asked.");
+                            continue;
+                        }
+
+                        string reply = await GetChatGPTResponseAsync(apiKey, cleanedInput);
+                        Console.WriteLine($"\n[BB]: {reply}\n");
+                    }
+                    else
+                    {
+                        Console.WriteLine("[INFO] No trigger phrase detected. Listening again...\n");
+                    }
+                }
+            }
+
+
+
+
+
             Console.WriteLine("[EXIT] Exiting BB assistant. Goodbye!");
 
 
@@ -87,9 +166,9 @@ namespace gptTestApp
         }
 
 
-        static void RecordAudio(string filePath, int silenceThreshold = 300, int silenceDurationMs = 2000)
+        static void RecordAudio(string filePath, int silenceThreshold = 200, int silenceDurationMs = 2500)
         {
-            Console.WriteLine("🎙️ Start speaking. Recording will stop when you're silent...");
+            Console.WriteLine("[INFO] Start speaking. Recording will stop when you're silent...");
 
             using var waveIn = new WaveInEvent();
             waveIn.WaveFormat = new WaveFormat(44100, 1);
@@ -142,7 +221,7 @@ namespace gptTestApp
             }
 
             waveIn.StopRecording();
-            Console.WriteLine("✅ Recording stopped due to silence.");
+            Console.WriteLine("[INFO] Recording stopped due to silence.");
         }
 
 
@@ -187,13 +266,19 @@ namespace gptTestApp
 
             if (!response.IsSuccessStatusCode)
             {
-                Console.WriteLine("❌ Whisper API Error:");
+                Console.WriteLine("[ERROR] Whisper API Error:");
                 Console.WriteLine(responseText);
                 return null;
             }
 
             using var json = JsonDocument.Parse(responseText);
             return json.RootElement.GetProperty("text").GetString();
+        }
+
+        static bool TriggerDetected(string input)
+        {
+            var pattern = @"\b(hey\s+bb|hello\s+bb|bb)\b";
+            return Regex.IsMatch(input, pattern, RegexOptions.IgnoreCase);
         }
     }
 }
