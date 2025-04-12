@@ -6,62 +6,86 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using NAudio.Wave;
 
-
 namespace gptTestApp
 {
     class Program
     {
+        static bool shouldExit = false;
+        static ManualResetEvent triggerDetected = new(false);
+
         static async Task Main(string[] args)
         {
-            Console.WriteLine("Enter your OpenAI API key:");
+            Console.Write("Enter your OpenAI API key: ");
             string apiKey = Console.ReadLine();
+
+            Console.Write("Proceed with voice assistant? (y/n): ");
+            var confirm = Console.ReadKey();
+            Console.WriteLine();
+            if (confirm.Key != ConsoleKey.Y) return;
+
+            Console.WriteLine("[INFO] BB is now listening... Press Escape to quit.\n");
+
+            // Escape key monitor
+            Task.Run(() =>
+            {
+                while (!shouldExit)
+                {
+                    if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)
+                        shouldExit = true;
+                }
+            });
+
             string audioPath = "speech.wav";
 
-            RecordAudio(audioPath);
-            string userInput = await TranscribeAudioAsync(audioPath, apiKey);
-
-            if (string.IsNullOrWhiteSpace(userInput))
+            while (!shouldExit)
             {
-                Console.WriteLine("❌ No transcribed text.");
-                return;
-            }
+                Console.WriteLine("[WAIT] Say something (waiting for trigger phrase: 'Hey BB')...");
 
-            Console.WriteLine($"\nYou said: {userInput}");
+                // Record user input
+                RecordAudio(audioPath);
 
-            var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-
-            var requestBody = new
-            {
-                model = "gpt-3.5-turbo",
-                messages = new[]
+                // Transcribe it
+                string transcript = await TranscribeAudioAsync(audioPath, apiKey);
+                if (string.IsNullOrWhiteSpace(transcript))
                 {
-                    new { role = "system", content = "You are BB, short for Black Box — a cheerful and enthusiastic AI assistant for a university open day. You always respond in an upbeat, friendly tone. Your job is to answer any question without ever asking questions in return. Stay helpful, positive, and clear, but never ask the user anything back." },
-                    new { role = "user", content = userInput }
+                    Console.WriteLine("[ERROR] No voice input detected.");
+                    continue;
                 }
-            };
 
-            string jsonBody = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+                Console.WriteLine($"\n Transcript: \"{transcript}\"");
 
-            var response = await httpClient.PostAsync("https://api.openai.com/v1/chat/completions", content);
-            string responseContent = await response.Content.ReadAsStringAsync();
+                // Check for trigger phrase
+                if (transcript.ToLower().Contains("bb"))
+                {
+                    // Clean the input (remove trigger phrase)
+                    string cleanedInput = transcript
+                        .Replace("hey bb", "", StringComparison.OrdinalIgnoreCase)
+                        .Replace("hello bb", "", StringComparison.OrdinalIgnoreCase)
+                        .Replace("bb", "", StringComparison.OrdinalIgnoreCase)
+                        .Trim();
 
-            if (!response.IsSuccessStatusCode)
-            {
-                Console.WriteLine("❌ ChatGPT Error:");
-                Console.WriteLine(responseContent);
-                return;
+                    if (string.IsNullOrWhiteSpace(cleanedInput))
+                    {
+                        Console.WriteLine("[NOTICE] Trigger phrase detected, but no question asked.");
+                        continue;
+                    }
+
+                    // Send to ChatGPT
+                    string reply = await GetChatGPTResponseAsync(apiKey, cleanedInput);
+                    Console.WriteLine($"\nBB: {reply}\n");
+                }
+                else
+                {
+                    Console.WriteLine("[INFO] No trigger phrase detected. Listening again...\n");
+                }
             }
 
-            using var doc = JsonDocument.Parse(responseContent);
-            string reply = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
-
-            Console.WriteLine($"\nBB: {reply}");
+            Console.WriteLine("[EXIT] Exiting BB assistant. Goodbye!");
 
 
 
         }
+
 
         static void RecordAudio(string filePath, int silenceThreshold = 300, int silenceDurationMs = 2000)
         {
@@ -120,6 +144,33 @@ namespace gptTestApp
             waveIn.StopRecording();
             Console.WriteLine("✅ Recording stopped due to silence.");
         }
+
+
+        static async Task<string> GetChatGPTResponseAsync(string apiKey, string userInput)
+        {
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var requestBody = new
+            {
+                model = "gpt-3.5-turbo",
+                messages = new[]
+                {
+                    new { role = "system", content = "You are BB, short for Black Box — a cheerful and enthusiastic AI assistant for a university open day. You always respond in an upbeat, friendly tone. Your job is to answer any question without ever asking questions in return. Stay helpful, positive, and clear, but never ask the user anything back." },
+                    new { role = "user", content = userInput }
+                }
+            };
+
+            string jsonBody = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.PostAsync("https://api.openai.com/v1/chat/completions", content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            using var doc = JsonDocument.Parse(responseContent);
+            return doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+        }
+
 
 
         static async Task<string> TranscribeAudioAsync(string filePath, string apiKey)
