@@ -20,3 +20,4 @@ C:\Users\dylan\Documents\Work\FYP\GPTtest\gptTestApp\bin\Debug\net8.0\NAudio.Was
 C:\Users\dylan\Documents\Work\FYP\GPTtest\gptTestApp\bin\Debug\net8.0\NAudio.WinMM.dll
 C:\Users\dylan\Documents\Work\FYP\GPTtest\gptTestApp\obj\Debug\net8.0\gptTestApp.csproj.AssemblyReference.cache
 C:\Users\dylan\Documents\Work\FYP\GPTtest\gptTestApp\obj\Debug\net8.0\gptTestApp.csproj.Up2Date
+C:\Users\dylan\Documents\Work\FYP\GPTtest\gptTestApp\obj\Debug\net8.0\gptTestApp.sourcelink.json

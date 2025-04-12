@@ -63,22 +63,64 @@ namespace gptTestApp
 
         }
 
-        static void RecordAudio(string filePath, int seconds = 5)
+        static void RecordAudio(string filePath, int silenceThreshold = 300, int silenceDurationMs = 2000)
         {
-            Console.WriteLine($"🎙️ Recording for {seconds} seconds...");
+            Console.WriteLine("🎙️ Start speaking. Recording will stop when you're silent...");
 
             using var waveIn = new WaveInEvent();
-            waveIn.WaveFormat = new WaveFormat(44100, 1); // 44.1kHz mono
+            waveIn.WaveFormat = new WaveFormat(44100, 1);
             using var writer = new WaveFileWriter(filePath, waveIn.WaveFormat);
 
-            waveIn.DataAvailable += (s, a) => writer.Write(a.Buffer, 0, a.BytesRecorded);
+            int silentFor = 0;
+            int checkInterval = 100; // ms
+            bool isSilent = false;
+
+            var stopwatch = new System.Diagnostics.Stopwatch();
+
+            waveIn.DataAvailable += (s, a) =>
+            {
+                writer.Write(a.Buffer, 0, a.BytesRecorded);
+
+                // Measure RMS level
+                float sum = 0;
+                for (int i = 0; i < a.BytesRecorded; i += 2)
+                {
+                    short sample = BitConverter.ToInt16(a.Buffer, i);
+                    sum += Math.Abs(sample);
+                }
+                float average = sum / (a.BytesRecorded / 2);
+
+                // Detect silence
+                if (average < silenceThreshold)
+                {
+                    if (!isSilent)
+                    {
+                        isSilent = true;
+                        stopwatch.Restart();
+                    }
+                }
+                else
+                {
+                    isSilent = false;
+                    stopwatch.Reset();
+                }
+            };
 
             waveIn.StartRecording();
-            Thread.Sleep(seconds * 1000);
-            waveIn.StopRecording();
 
-            Console.WriteLine("✅ Recording saved!");
+            while (true)
+            {
+                Thread.Sleep(checkInterval);
+                if (isSilent && stopwatch.ElapsedMilliseconds >= silenceDurationMs)
+                {
+                    break;
+                }
+            }
+
+            waveIn.StopRecording();
+            Console.WriteLine("✅ Recording stopped due to silence.");
         }
+
 
         static async Task<string> TranscribeAudioAsync(string filePath, string apiKey)
         {
