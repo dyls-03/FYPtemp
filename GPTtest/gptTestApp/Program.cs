@@ -277,7 +277,7 @@ namespace gptTestApp
 
         static bool TriggerDetected(string input)
         {
-            var pattern = @"\b(hey\s+bb|hello\s+bb|bb)\b";
+            var pattern = @"\b(hey\s+bb|hello\s+bb|bb|help|hey\s+black\s+box|hello\s+black\s+box)\b";
             return Regex.IsMatch(input, pattern, RegexOptions.IgnoreCase);
         }
     }

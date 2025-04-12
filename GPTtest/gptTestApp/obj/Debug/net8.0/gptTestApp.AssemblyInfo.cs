@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("gptTestApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+521ed8313cc17d6c426a168b3d4ba12fe7789a7f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+32747711ccf51becdf508dc63a49fc80f7a431f4")]
 [assembly: System.Reflection.AssemblyProductAttribute("gptTestApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("gptTestApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
