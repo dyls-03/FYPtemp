@@ -43,56 +43,7 @@ namespace gptTestApp
                     }
                 }
             });
-/*
-            string audioPath = "speech.wav";
 
-
-            while (!shouldExit)
-            {
-                Console.WriteLine("[WAIT] Say something (waiting for trigger phrase: 'Hey BB')...");
-
-                // Record user input
-                RecordAudio(audioPath);
-
-                // Transcribe it
-                string transcript = await TranscribeAudioAsync(audioPath, apiKey);
-                if (string.IsNullOrWhiteSpace(transcript))
-                {
-                    Console.WriteLine("[ERROR] No voice input detected.");
-                    continue;
-                }
-
-                Console.WriteLine($"\n Transcript: \"{transcript}\"");
-
-                // Check for trigger phrase
-                bool triggered = TriggerDetected(transcript) || forceTrigger;
-
-                if (triggered)
-                {
-                    // Reset override flag
-                    forceTrigger = false;
-
-                    string cleanedInput = forceTrigger
-                        ? transcript.Trim()
-                        : Regex.Replace(transcript, @"\b(hey\s+bb|hello\s+bb|bb)\b", "", RegexOptions.IgnoreCase).Trim();
-
-                    if (string.IsNullOrWhiteSpace(cleanedInput))
-                    {
-                        Console.WriteLine("[NOTICE] Trigger phrase detected, but no question asked.");
-                        continue;
-                    }
-
-                    // Send to ChatGPT
-                    string reply = await GetChatGPTResponseAsync(apiKey, cleanedInput);
-                    Console.WriteLine($"\nBB: {reply}\n");
-                }
-                else
-                {
-                    Console.WriteLine("[INFO] No trigger phrase detected. Listening again...\n");
-                }
-            }
-
-            */
             while (!shouldExit)
             {
                 string audioPath = "speech.wav";
@@ -232,7 +183,7 @@ namespace gptTestApp
 
             var requestBody = new
             {
-                model = "gpt-3.5-turbo",
+                model = "gpt-4o-mini",
                 messages = new[]
                 {
                     new { role = "system", content = "You are BB, short for Black Box — a cheerful and enthusiastic AI assistant for a university open day. You always respond in an upbeat, friendly tone. Your job is to answer any question without ever asking questions in return. Stay helpful, positive, and clear, but never ask the user anything back." },
